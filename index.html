@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎙️ Live Voice Translator - YouTube & Video</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Hind Siliguri', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .pulse-ring {
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        
+        .wave-bar {
+            animation: wave 1s ease-in-out infinite;
+        }
+        
+        @keyframes wave {
+            0%, 100% { height: 20%; }
+            50% { height: 100%; }
+        }
+        
+        .transcript-bubble {
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .video-container {
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+        
+        .video-container:hover {
+            transform: scale(1.02);
+        }
+        
+        .translation-overlay {
+            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 50%, transparent 100%);
+        }
+        
+        .language-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-white mb-2">🎙️ Live Voice Translator</h1>
+            <p class="text-white/80 text-lg">YouTube ভিডিওতে ক্লিক করুন এবং স্বয়ংক্রিয় ভয়েস ট্রান্সলেশন দেখুন</p>
+        </div>
+
+        <!-- Main Container -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Left Panel: Input & Video -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- Input Section -->
+                <div class="glass-panel rounded-2xl p-6 shadow-2xl">
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <div class="flex-1">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">🔗 YouTube URL অথবা ভিডিও আপলোড করুন</label>
+                            <input type="text" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..." 
+                                class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 focus:outline-none transition">
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="loadVideo()" class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold transition shadow-lg">
+                                লোড করুন
+                            </button>
+                            <label class="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-xl font-semibold transition shadow-lg cursor-pointer flex items-center">
+                                <span>📁 আপলোড</span>
+                                <input type="file" id="videoUpload" accept="video/*" class="hidden" onchange="handleUpload(this)">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Video Player Container -->
+                <div class="glass-panel rounded-2xl p-4 shadow-2xl relative">
+                    <div id="videoContainer" class="video-container rounded-xl overflow-hidden bg-black aspect-video flex items-center justify-center relative">
+                        
+                        <!-- Placeholder -->
+                        <div id="placeholder" class="text-center text-gray-400">
+                            <div class="text-6xl mb-4">🎬</div>
+                            <p class="text-xl">ভিডিও লিংক দিন অথবা আপলোড করুন</p>
+                            <p class="text-sm mt-2">ভিডিওতে ক্লিক করলে ট্রান্সলেশন শুরু হবে</p>
+                        </div>
+
+                        <!-- YouTube Iframe -->
+                        <div id="youtubePlayer" class="w-full h-full hidden"></div>
+
+                        <!-- Native Video Player -->
+                        <video id="nativePlayer" class="w-full h-full hidden" controls></video>
+
+                        <!-- Translation Overlay (Facebook Style) -->
+                        <div id="translationOverlay" class="translation-overlay absolute bottom-0 left-0 right-0 p-6 hidden">
+                            <div class="flex items-end gap-4">
+                                <!-- Live Indicator -->
+                                <div class="flex-shrink-0">
+                                    <div class="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center pulse-ring relative">
+                                        <span class="text-white text-xl">🎤</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Transcript Area -->
+                                <div class="flex-1 space-y-2">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse">LIVE</span>
+                                        <span class="text-white/70 text-sm" id="detectedLang">Detecting language...</span>
+                                    </div>
+                                    
+                                    <!-- Original Text -->
+                                    <div id="originalText" class="text-white/80 text-lg font-medium leading-relaxed min-h-[1.5em]">
+                                        শুনছি...
+                                    </div>
+                                    
+                                    <!-- Translated Text (Bangla) -->
+                                    <div id="translatedText" class="text-white text-2xl font-bold leading-relaxed min-h-[1.5em] text-yellow-300">
+                                        অনুবাদ হচ্ছে...
+                                    </div>
+                                </div>
+
+                                <!-- Wave Animation -->
+                                <div class="flex items-end gap-1 h-12">
+                                    <div class="w-1 bg-white/80 rounded-full wave-bar" style="animation-delay: 0s"></div>
+                                    <div class="w-1 bg-white/80 rounded-full wave-bar" style="animation-delay: 0.1s"></div>
+                                    <div class="w-1 bg-white/80 rounded-full wave-bar" style="animation-delay: 0.2s"></div>
+                                    <div class="w-1 bg-white/80 rounded-full wave-bar" style="animation-delay: 0.3s"></div>
+                                    <div class="w-1 bg-white/80 rounded-full wave-bar" style="animation-delay: 0.4s"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Click to Start Overlay -->
+                        <div id="startOverlay" class="absolute inset-0 bg-black/60 flex items-center justify-center cursor-pointer hidden" onclick="startTranslation()">
+                            <div class="text-center text-white">
+                                <div class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-4 mx-auto backdrop-blur-sm hover:bg-white/30 transition">
+                                    <span class="text-4xl">▶️</span>
+                                </div>
+                                <p class="text-xl font-semibold">ভিডিওতে ক্লিক করুন</p>
+                                <p class="text-white/70">স্বয়ংক্রিয় ভয়েস ট্রান্সলেশন শুরু করতে</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Video Controls Info -->
+                    <div class="mt-4 flex items-center justify-between text-sm text-gray-600">
+                        <div class="flex items-center gap-4">
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 bg-green-500 rounded-full"></span> ভিডিও রেডি</span>
+                            <span id="statusText" class="text-gray-400">ট্রান্সলেশন বন্ধ আছে</span>
+                        </div>
+                        <button onclick="stopTranslation()" class="text-red-500 hover:text-red-700 font-medium hidden" id="stopBtn">
+                            ⏹️ থামান
+                        </button>
+                    </div>
+                </div>
+
+                <!-- History -->
+                <div class="glass-panel rounded-2xl p-6 shadow-2xl">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <span>📜</span> ট্রান্সক্রিপশন হিস্টরি
+                    </h3>
+                    <div id="transcriptHistory" class="space-y-3 max-h-60 overflow-y-auto">
+                        <p class="text-gray-400 text-center italic">এখনো কোনো ট্রান্সক্রিপশন নেই...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Settings -->
+            <div class="space-y-6">
+                
+                <!-- Language Settings -->
+                <div class="glass-panel rounded-2xl p-6 shadow-2xl">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">🌐 ভাষা সেটিংস</h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-2">শোনার ভাষা (Input)</label>
+                            <select id="inputLang" class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-purple-500 focus:outline-none">
+                                <option value="bn-BD">🇧🇩 বাংলা (Bengali)</option>
+                                <option value="en-US" selected>🇺🇸 ইংরেজি (English)</option>
+                                <option value="hi-IN">🇮🇳 হিন্দি (Hindi)</option>
+                                <option value="ar-SA">🇸🇦 আরবি (Arabic)</option>
+                                <option value="es-ES">🇪🇸 স্প্যানিশ (Spanish)</option>
+                                <option value="fr-FR">🇫🇷 ফরাসি (French)</option>
+                                <option value="de-DE">🇩🇪 জার্মান (German)</option>
+                                <option value="zh-CN">🇨🇳 চাইনিজ (Chinese)</option>
+                                <option value="ja-JP">🇯🇪 জাপানিজ (Japanese)</option>
+                            </select>
+                        </div>
+
+                        <div class="flex items-center justify-center">
+                            <div class="bg-purple-100 p-2 rounded-full">
+                                <span class="text-2xl">⬇️</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-2">অনুবাদের ভাষা (Output)</label>
+                            <select id="outputLang" class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-purple-500 focus:outline-none">
+                                <option value="bn" selected>🇧🇩 বাংলা (Bengali)</option>
+                                <option value="en">🇺🇸 ইংরেজি (English)</option>
+                                <option value="hi">🇮🇳 হিন্দি (Hindi)</option>
+                                <option value="ar">🇸🇦 আরবি (Arabic)</option>
+                                <option value="es">🇪🇸 স্প্যানিশ (Spanish)</option>
+                                <option value="fr">🇫🇷 ফরাসি (French)</option>
+                                <option value="de">🇩🇪 জার্মান (German)</option>
+                                <option value="zh">🇨🇳 চাইনিজ (Chinese)</option>
+                                <option value="ja">🇯🇵 জাপানিজ (Japanese)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button onclick="testTranslation()" class="w-full mt-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold hover:shadow-lg transition">
+                        🧪 টেস্ট করুন
+                    </button>
+                </div>
+
+                <!-- Features Info -->
+                <div class="glass-panel rounded-2xl p-6 shadow-2xl">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">✨ ফিচারস</h3>
+                    <ul class="space-y-3 text-sm text-gray-600">
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-500 text-lg">✓</span>
+                            <span>YouTube ভিডিও সাপোর্ট</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-500 text-lg">✓</span>
+                            <span>লোকাল ভিডিও আপলোড</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-500 text-lg">✓</span>
+                            <span>রিয়েল-টাইম স্পিচ রিকগনিশন</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-500 text-lg">✓</span>
+                            <span>অটো ট্রান্সলেশন</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-500 text-lg">✓</span>
+                            <span>Facebook-স্টাইল UI</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- How to Use -->
+                <div class="glass-panel rounded-2xl p-6 shadow-2xl">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">📖 ব্যবহার বিধি</h3>
+                    <ol class="space-y-2 text-sm text-gray-600 list-decimal list-inside">
+                        <li>YouTube লিংক দিন বা ভিডিও আপলোড করুন</li>
+                        <li>ভিডিও প্লেয়ারে ক্লিক করুন</li>
+                        <li>মাইক্রোফোন এক্সেস অনুমতি দিন</li>
+                        <li>স্বয়ংক্রিয় ট্রান্সলেশন শুরু হবে</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global Variables
+        let recognition = null;
+        let isTranslating = false;
+        let transcriptHistory = [];
+        
+        // Translation Dictionary (Simple demo translations)
+        const translations = {
+            'hello': 'হ্যালো',
+            'how are you': 'আপনি কেমন আছেন',
+            'thank you': 'ধন্যবাদ',
+            'good morning': 'শুভ সকাল',
+            'good night': 'শুভ রাত্রি',
+            'i love you': 'আমি তোমাকে ভালোবাসি',
+            'what is your name': 'তোমার নাম কি',
+            'my name is': 'আমার নাম',
+            'where are you from': 'তুমি কোথা থেকে এসেছো',
+            'i am from': 'আমি এসেছি',
+            'nice to meet you': 'তোমার সাথে দেখা করে ভালো লাগলো',
+            'goodbye': 'বিদায়',
+            'yes': 'হ্যাঁ',
+            'no': 'না',
+            'please': 'দয়া করে',
+            'sorry': 'দুঃখিত',
+            'excuse me': 'মাফ করবেন'
+        };
+
+        // Load YouTube Video
+        function loadVideo() {
+            const url = document.getElementById('youtubeUrl').value;
+            const videoId = extractYouTubeID(url);
+            
+            if (videoId) {
+                document.getElementById('placeholder').classList.add('hidden');
+                document.getElementById('nativePlayer').classList.add('hidden');
+                document.getElementById('youtubePlayer').classList.remove('hidden');
+                document.getElementById('startOverlay').classList.remove('hidden');
+                
+                document.getElementById('youtubePlayer').innerHTML = `
+                    <iframe width="100%" height="100%" 
+                        src="https://www.youtube.com/embed/${videoId}?enablejsapi=1&autoplay=0" 
+                        frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowfullscreen>
+                    </iframe>
+                `;
+            } else {
+                alert('সঠিক YouTube URL দিন!');
+            }
+        }
+
+        // Handle Video Upload
+        function handleUpload(input) {
+            const file = input.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                document.getElementById('placeholder').classList.add('hidden');
+                document.getElementById('youtubePlayer').classList.add('hidden');
+                document.getElementById('nativePlayer').classList.remove('hidden');
+                document.getElementById('startOverlay').classList.remove('hidden');
+                
+                const player = document.getElementById('nativePlayer');
+                player.src = url;
+                player.load();
+            }
+        }
+
+        // Extract YouTube ID
+        function extractYouTubeID(url) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
+        // Start Translation (Facebook Style)
+        async function startTranslation() {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                alert('দুঃখিত, আপনার ব্রাউজার স্পিচ রিকগনিশন সাপোর্ট করে না। Chrome ব্যবহার করুন।');
+                return;
+            }
+
+            document.getElementById('startOverlay').classList.add('hidden');
+            document.getElementById('translationOverlay').classList.remove('hidden');
+            document.getElementById('stopBtn').classList.remove('hidden');
+            document.getElementById('statusText').textContent = '🔴 লাইভ ট্রান্সলেশন চলছে...';
+            document.getElementById('statusText').classList.add('text-red-500');
+
+            // Play video if native
+            const nativePlayer = document.getElementById('nativePlayer');
+            if (!nativePlayer.classList.contains('hidden')) {
+                nativePlayer.play();
+            }
+
+            // Initialize Speech Recognition
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = document.getElementById('inputLang').value;
+
+            recognition.onstart = () => {
+                isTranslating = true;
+                document.getElementById('detectedLang').textContent = 
+                    `শুনছি: ${document.getElementById('inputLang').options[document.getElementById('inputLang').selectedIndex].text}`;
+            };
+
+            recognition.onresult = (event) => {
+                let finalTranscript = '';
+                let interimTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript;
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+
+                if (finalTranscript) {
+                    processTranslation(finalTranscript);
+                } else if (interimTranscript) {
+                    document.getElementById('originalText').textContent = interimTranscript;
+                    document.getElementById('originalText').classList.add('italic', 'text-white/50');
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error', event.error);
+                if (event.error === 'not-allowed') {
+                    alert('মাইক্রোফোন এক্সেস দিন!');
+                }
+            };
+
+            recognition.onend = () => {
+                if (isTranslating) {
+                    recognition.start(); // Restart if still translating
+                }
+            };
+
+            recognition.start();
+        }
+
+        // Process Translation
+        function processTranslation(text) {
+            document.getElementById('originalText').textContent = text;
+            document.getElementById('originalText').classList.remove('italic', 'text-white/50');
+            
+            // Simulate translation (In real app, use Google Translate API or similar)
+            const translated = translateText(text);
+            document.getElementById('translatedText').textContent = translated;
+            
+            // Add to history
+            addToHistory(text, translated);
+            
+            // Text to Speech for translation (optional)
+            speakTranslation(translated);
+        }
+
+        // Simple Translation Logic (Demo)
+        function translateText(text) {
+            const outputLang = document.getElementById('outputLang').value;
+            const lowerText = text.toLowerCase().trim();
+            
+            // Check dictionary first
+            if (translations[lowerText]) {
+                return translations[lowerText];
+            }
+            
+            // Simulate translation based on language
+            if (outputLang === 'bn') {
+                return `[বাংলা অনুবাদ]: ${text} (Demo: এটি একটি ডেমো অনুবাদ)`;
+            } else if (outputLang === 'en') {
+                return `[English Translation]: ${text}`;
+            } else if (outputLang === 'hi') {
+                return `[हिंदी अनुवाद]: ${text}`;
+            }
+            
+            return `[${outputLang.toUpperCase()}]: ${text}`;
+        }
+
+        // Text to Speech
+        function speakTranslation(text) {
+            if ('speechSynthesis' in window) {
+                // Remove bracketed text for speech
+                const cleanText = text.replace(/\[[^\]]+\]: /g, '');
+                
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                utterance.lang = document.getElementById('outputLang').value;
+                utterance.rate = 1;
+                utterance.pitch = 1;
+                
+                // Don't speak if it's too long
+                if (cleanText.length < 100) {
+                    window.speechSynthesis.speak(utterance);
+                }
+            }
+        }
+
+        // Stop Translation
+        function stopTranslation() {
+            isTranslating = false;
+            if (recognition) {
+                recognition.stop();
+            }
+            
+            document.getElementById('translationOverlay').classList.add('hidden');
+            document.getElementById('startOverlay').classList.remove('hidden');
+            document.getElementById('stopBtn').classList.add('hidden');
+            document.getElementById('statusText').textContent = 'ট্রান্সলেশন বন্ধ আছে';
+            document.getElementById('statusText').classList.remove('text-red-500');
+            
+            // Pause video
+            const nativePlayer = document.getElementById('nativePlayer');
+            if (!nativePlayer.classList.contains('hidden')) {
+                nativePlayer.pause();
+            }
+        }
+
+        // Add to History
+        function addToHistory(original, translated) {
+            const historyDiv = document.getElementById('transcriptHistory');
+            
+            // Remove placeholder if exists
+            if (historyDiv.querySelector('.italic')) {
+                historyDiv.innerHTML = '';
+            }
+            
+            const item = document.createElement('div');
+            item.className = 'transcript-bubble bg-white p-3 rounded-lg shadow-sm border-l-4 border-purple-500';
+            item.innerHTML = `
+                <div class="text-xs text-gray-500 mb-1">${new Date().toLocaleTimeString()}</div>
+                <div class="text-sm text-gray-800 font-medium">${original}</div>
+                <div class="text-sm text-purple-600 mt-1">➜ ${translated}</div>
+            `;
+            
+            historyDiv.insertBefore(item, historyDiv.firstChild);
+        }
+
+        // Test Translation
+        function testTranslation() {
+            const testTexts = [
+                "Hello, how are you today",
+                "Thank you very much for your help",
+                "What is your name",
+                "I love this video",
+                "Good morning everyone"
+            ];
+            
+            const randomText = testTexts[Math.floor(Math.random() * testTexts.length)];
+            document.getElementById('originalText').textContent = randomText;
+            
+            const translated = translateText(randomText);
+            document.getElementById('translatedText').textContent = translated;
+            
+            document.getElementById('translationOverlay').classList.remove('hidden');
+            addToHistory(randomText, translated);
+            
+            setTimeout(() => {
+                if (!isTranslating) {
+                    document.getElementById('translationOverlay').classList.add('hidden');
+                }
+            }, 5000);
+        }
+
+        // Enter key support
+        document.getElementById('youtubeUrl').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadVideo();
+        });
+    </script>
+</body>
+</html>
